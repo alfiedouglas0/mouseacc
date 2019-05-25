@@ -1,0 +1,82 @@
+#!/bin/bash
+DIRECTORY=`dirname $0`
+package='mouseacc'
+
+read='false'
+reset='false'
+write='false'
+writeVal=1
+
+print_usage(){
+  echo "$package - Set mouse acceleration setting"
+  echo " "
+  echo "$package [-r | -w [-1|1] | -d]"
+  echo " "
+  echo "options:"
+  echo "-r, --read                read the current value (-1 = off, 1 = on)"
+  echo "-w, --write               set value (-1 = off, 1 = on)"
+  echo "-d, --remove-setting      remove the $package setting and use system default"
+  exit 0
+}
+
+writeValue(){
+  echo "Setting mouse acceleration to $writeVal..."
+  defaults write .GlobalPreferences com.apple.mouse.scaling $writeVal
+  echo "A restart/logout is requried for the change to take place"
+  prompLogout
+}
+
+readValue(){
+  currentVal=$(defaults read .GlobalPreferences com.apple.mouse.scaling \
+          2>"$DIRECTORY/mouseacc.err")
+  if [ -z "$currentVal" ] ; then
+    currentVal="null"
+  fi
+  echo "mouse_acceleration = $currentVal"
+}
+
+deleteSetting(){
+  echo "Deleting mouse acceleration setting..."
+  defaults delete .GlobalPreferences com.apple.mouse.scaling \
+          2>"$DIRECTORY/mouseacc.err"
+  echo "A restart/logout is requried for the change to take place"
+  prompLogout
+}
+
+prompLogout(){
+  osascript -e 'tell app "System Events" to log out'
+}
+
+
+if [ $# -eq 0 ]; then
+  echo "$package ERROR: Must supply at least one option"
+  echo ""
+  print_usage
+  exit 0
+fi
+
+if [ "${1:0:1}" != "-" ]; then
+  echo "$package ERROR: First argument must be an option"
+  echo ""
+  print_usage
+  exit 0
+fi
+
+while getopts 'rw:d' flag; do
+  case "${flag}" in
+    r) read='true'; readValue ;;
+    w) write='true'; writeVal=${OPTARG};
+        if [[ "$writeVal" -eq "-1"  ||  "$writeVal" -eq "1" ]]; then
+          writeValue
+        else
+          echo "$package ERROR: Argument must be either -1 or 1"
+          echo ""
+          print_usage
+        fi ;;
+    d) reset='true'; deleteSetting ;;
+    *) print_usage
+        exit 1 ;;
+  esac
+done
+
+#echo "read = $read, write = $write, reset = $reset, writeVal = $writeVal"
